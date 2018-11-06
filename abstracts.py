@@ -6,7 +6,7 @@ from game import Winner, Player
 
 class Policy(ABC):
     @abstractmethod
-    def evaluate(self, visits, score):
+    def evaluate(self, player, visits, score, prior_propability):
         pass
 
 
@@ -17,6 +17,11 @@ class ABCMCNode(ABC):
 
     @abstractmethod
     def visit(self):
+        pass
+
+    @property
+    @abstractmethod
+    def visits(self):
         pass
 
     @abstractmethod

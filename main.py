@@ -3,7 +3,7 @@ from random import choice
 from game import Winner, Player
 from abstracts import Game
 
-from mcts import RolloutMCTS, UCT1, RandomPolicy
+from mcts import RolloutMCTS, UCB1, RandomPolicy
 
 
 class Nim(Game[int]):
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     game = Nim(10, 5, starting_player=P)
 
-    mcts = RolloutMCTS(game, UCT1(1), RandomPolicy())
+    mcts = RolloutMCTS(game, UCB1(1), RandomPolicy())
     wins = 0
 
     for i in range(100):

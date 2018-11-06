@@ -20,9 +20,9 @@ class MCCommonNode(ABCMCNode):
     def has_children(self):
         return self.num_childs > 0
 
-    def add_child(self, priority):
+    def add_child(self, prior_propability):
         move_idx = len(self.children)
-        self.child_values[2, move_idx] = priority
+        self.child_values[2, move_idx] = prior_propability
 
         self.num_childs += 1
         self.children.append(MCChildNode(
@@ -34,6 +34,7 @@ class MCCommonNode(ABCMCNode):
     def choose_best(self, player, policy, states):
         move = minmax(player, policy.evaluate(player,
             self.child_values[0, :self.num_childs],
+            self.visits,
             self.child_values[1, :self.num_childs],
             self.child_values[2, :self.num_childs],
         ))
@@ -52,11 +53,18 @@ class MCRootNode(MCCommonNode):
     def __init__(self, max_sub_states):
         super().__init__(max_sub_states)
 
+        self.mvisits = 0
+        self.score = 0
+
     def visit(self):
-        pass
+        self.mvisits += 1
+
+    @property
+    def visits(self):
+        return self.mvisits
 
     def add_score(self, score):
-        pass
+        self.score += score
 
     def parent(self):
         return None
@@ -72,6 +80,10 @@ class MCChildNode(MCCommonNode):
     def visit(self):
         self.mparent.child_values[0, self.move_idx] += 1
 
+    @property
+    def visits(self):
+        return self.mparent.child_values[0, self.move_idx]
+
     def add_score(self, score):
         self.mparent.child_values[1, self.move_idx] += score
 
@@ -82,37 +94,38 @@ class MCChildNode(MCCommonNode):
 
 
 class TopScorePolicy(Policy):
-    def evaluate(self, player, visits, score, priority):
+    def evaluate(self, player, visits, parent_visits, score, prior_propability):
         return score
 
 
 class RandomPolicy(Policy):
-    def evaluate(self, player, visits, score, priority):
+    def evaluate(self, player, visits, parent_visits, score, prior_propability):
         return np.random.random(getattr(visits, "shape", None))
 
 
 class QUPolicy(Policy):
     @abstractmethod
-    def U(self, visits, score, priority):
+    def U(self, visits, parent_visits, score, prior_propability):
         pass
 
     @abstractmethod
-    def Q(self, visits, score, priority):
+    def Q(self, visits, parent_visits, score, prior_propability):
         pass
 
-    def evaluate(self, player, visits, score, priority):
-        return self.Q(visits, score, priority) \
-            + player.value * self.U(visits, score, priority)
+    def evaluate(self, player, visits, parent_visits, score, prior_propability):
+        return self.Q(visits, parent_visits, score, prior_propability) \
+            + player.value * self.U(visits, parent_visits,
+                                    score, prior_propability)
 
 
-class UCT1(QUPolicy):
+class UCB1(QUPolicy):
     def __init__(self, c):
         self.c = c
 
-    def U(self, visits, score, priority):
-        return self.c * np.sqrt(np.log(visits) / (1 + visits))
+    def U(self, visits, parent_visits, score, prior_propability):
+        return self.c * np.sqrt(np.log(parent_visits) / (1 + visits))
 
-    def Q(self, visits, score, priority):
+    def Q(self, visits, parent_visits, score, prior_propability):
         return score / (1 + visits)
 
 
@@ -141,7 +154,7 @@ class MonteCarloTreeSearch(ABCTreeSearch):
 
         player, _ = state
         _, best_state = root.choose_best(player,
-            self.search_policy, self.game.child_states(state))
+                                         self.search_policy, self.game.child_states(state))
         return best_state
 
     def select(self, root, state):
@@ -150,15 +163,15 @@ class MonteCarloTreeSearch(ABCTreeSearch):
         while current.expanded and current.has_children():
             player, _ = state
             current, state = current.choose_best(player,
-                self.tree_policy, self.game.child_states(state))
+                                                 self.tree_policy, self.game.child_states(state))
 
         return current, state
 
-    def expand(self, node, state, priorities):
+    def expand(self, node, state, priors):
         node.expand()
 
-        for _, priority in zip(self.game.child_states(state), priorities):
-            node.add_child(priority)
+        for _, prior_propability in zip(self.game.child_states(state), priors):
+            node.add_child(prior_propability)
 
     @abstractmethod
     def evaluate(self, node, state):
@@ -194,7 +207,8 @@ class RolloutMCTS(MonteCarloTreeSearch):
 
             # Visits and scores for all nodes below here should be all zeroes
             zeros = np.zeros(len(child_states))
-            move = minmax(cur_player, self.default_policy.evaluate(cur_player, zeros, zeros, zeros))
+            move = minmax(cur_player, self.default_policy.evaluate(
+                cur_player, zeros, 0, zeros, zeros))
 
             state = child_states[move]
 
