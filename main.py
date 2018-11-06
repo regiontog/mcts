@@ -35,14 +35,27 @@ class Nim(Game[int]):
 
 
 if __name__ == "__main__":
-    game = Nim(10, 5, starting_player=Player.Player1)
-    game_state = game.initial_state()
+    P = Player.Player2
+    W = Winner.from_player(P)
+
+    game = Nim(10, 5, starting_player=P)
 
     mcts = RolloutMCTS(game, UCT1(1), RandomPolicy())
+    wins = 0
 
-    while game.winner(game_state) is Winner.NA:
-        print(game_state)
-        game_state = mcts.search(game_state, 500)
+    for i in range(100):
+        print("Game", i)
+        game_state = game.initial_state()
 
-    print(game_state)
-    print(game.winner(game_state))
+        while game.winner(game_state) is Winner.NA:
+            # Tree search move for player 1
+            game_state = mcts.search(game_state, 500)
+
+            # # Random move for player 2
+            # p2_moves = game.child_states(game_state)
+            # if p2_moves:
+            #     game_state = choice(p2_moves)
+
+        wins += 1 if game.winner(game_state) is W else 0
+
+    print("{}/100".format(wins))
