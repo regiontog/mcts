@@ -50,11 +50,20 @@ class MCCommonNode(ABCMCNode):
 
 
 class MCRootNode(MCCommonNode):
-    def __init__(self, max_sub_states):
+    def __init__(self, max_sub_states, copy_from=None):
         super().__init__(max_sub_states)
 
         self.mvisits = 0
-        self.score = 0
+        self.mscore = 0
+
+        if copy_from:
+            self.mvisits = copy_from.visits
+            self.mscore = copy_from.score
+            self.exp = copy_from.exp
+            self.children = copy_from.children
+            self.num_childs = copy_from.num_childs
+            self.child_values = np.array(copy_from.child_values)
+
 
     def visit(self):
         self.mvisits += 1
@@ -63,8 +72,12 @@ class MCRootNode(MCCommonNode):
     def visits(self):
         return self.mvisits
 
+    @property
+    def score(self):
+        return self.mscore
+
     def add_score(self, score):
-        self.score += score
+        self.mscore += score
 
     def parent(self):
         return None
@@ -84,6 +97,10 @@ class MCChildNode(MCCommonNode):
     def visits(self):
         return self.mparent.child_values[0, self.move_idx]
 
+    @property
+    def score(self):
+        return self.mparent.child_values[1, self.move_idx]
+
     def add_score(self, score):
         self.mparent.child_values[1, self.move_idx] += score
 
@@ -93,7 +110,15 @@ class MCChildNode(MCCommonNode):
 # Policies
 
 
-class TopScorePolicy(Policy):
+class BestQualityPolicy(Policy):
+    def evaluate(self, player, visits, parent_visits, score, prior_propability):
+        return score/(1 + visits)
+
+class MostVisitsPolicy(Policy):
+    def evaluate(self, player, visits, parent_visits, score, prior_propability):
+        return visits
+
+class HighestScorePolicy(Policy):
     def evaluate(self, player, visits, parent_visits, score, prior_propability):
         return score
 
@@ -137,13 +162,14 @@ def minmax(player, array):
 
 
 class MonteCarloTreeSearch(ABCTreeSearch):
-    def __init__(self, game: Game, tree_policy, search_policy=TopScorePolicy()):
+    def __init__(self, game: Game, tree_policy, search_policy=HighestScorePolicy()):
         self.game = game
         self.tree_policy = tree_policy
         self.search_policy = search_policy
 
-    def search(self, state, iterations):
-        root = MCRootNode(self.game.max_child_states)
+    def search(self, state, iterations, root=None):
+        if root is None:
+            root = MCRootNode(self.game.max_child_states)
 
         for _ in range(iterations):
             node, node_state = self.select(root, state)
@@ -153,17 +179,31 @@ class MonteCarloTreeSearch(ABCTreeSearch):
             self.backpropagate(node, score * player.value)
 
         player, _ = state
-        _, best_state = root.choose_best(player,
-                                         self.search_policy, self.game.child_states(state))
-        return best_state
+        node, best_state = root.choose_best(
+            player,
+            self.search_policy,
+            self.game.child_states(state)
+        )
+
+        # Create a new root without the reference to
+        # parent so that python can free the memory thats unused
+        standalone_new_root = MCRootNode(
+            self.game.max_child_states,
+            copy_from=node,
+        )
+
+        return standalone_new_root, best_state
 
     def select(self, root, state):
         current = root
 
         while current.expanded and current.has_children():
             player, _ = state
-            current, state = current.choose_best(player,
-                                                 self.tree_policy, self.game.child_states(state))
+            current, state = current.choose_best(
+                player,
+                self.tree_policy,
+                self.game.child_states(state)
+            )
 
         return current, state
 

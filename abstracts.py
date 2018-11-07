@@ -24,6 +24,11 @@ class ABCMCNode(ABC):
     def visits(self):
         pass
 
+    @property
+    @abstractmethod
+    def score(self):
+        pass
+
     @abstractmethod
     def add_score(self, score):
         pass
@@ -70,7 +75,7 @@ class Game(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def winner(self, state: State) -> Winner:
+    def describe_state_transition(self, state: State) -> Callable[[State], str]:
         pass
 
     @property
