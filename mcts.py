@@ -143,15 +143,19 @@ class QUPolicy(Policy):
                                     score, prior_propability)
 
 
-class UCB1(QUPolicy):
-    def __init__(self, c):
-        self.c = c
+class UCB(QUPolicy):
+    def __init__(self, exploration_bias):
+        self.c = exploration_bias
 
     def U(self, visits, parent_visits, score, prior_propability):
         return self.c * np.sqrt(np.log(parent_visits) / (1 + visits))
 
+class UCT(UCB):
+    def __init__(self, exploration_bias=np.sqrt(2)):
+        super().__init__(exploration_bias)
+
     def Q(self, visits, parent_visits, score, prior_propability):
-        return score / (1 + visits)
+        return score/(1 + visits)
 
 
 # Algorithms

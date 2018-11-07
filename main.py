@@ -5,7 +5,7 @@ from abstracts import Game
 
 import multiprocessing
 
-from mcts import RolloutMCTS, UCB1, RandomPolicy
+from mcts import RolloutMCTS, UCT, RandomPolicy
 
 player_desc = {
     Player.Player1: "Player 1",
@@ -72,15 +72,15 @@ if __name__ == "__main__":
     W = Winner.Player1
 
     G = 100
-    M = 10000
-    N = 20
-    K = 3
+    M = 1000
+    N = 10
+    K = 5
 
     def play_game(i):
         print("Game", i)
 
         game = Nim(N, K, starting_player=P)
-        mcts = RolloutMCTS(game, UCB1(1), RandomPolicy())
+        mcts = RolloutMCTS(game, UCT(), RandomPolicy())
 
         game_state = game.initial_state()
         tree = None
