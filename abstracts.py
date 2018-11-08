@@ -3,6 +3,10 @@ from typing import TypeVar, Generic, List, Callable, Tuple
 
 from game import Winner, Player
 
+"""
+Abstract interfaces for the different classes involved with MCTS
+"""
+
 
 class Policy(ABC):
     @abstractmethod
